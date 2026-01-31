@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Config files with sensitive data (user should copy from examples)
+gui_config.json
+jobs.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Syncarr source config (if using config file method)
+syncarr_source/config.conf

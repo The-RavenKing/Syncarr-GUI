@@ -1,0 +1,5 @@
+{
+    "port": 8000,
+    "auth_users": {"admin": "admin"},
+    "secret_key": "syncarr_secret_key_change_me"
+}

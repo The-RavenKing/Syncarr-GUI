@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syncarr Web GUI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-gray-100 font-sans antialiased" x-data="app()">
+
+    <!-- Login Screen -->
+    <div x-show="!token" x-transition.opacity class="min-h-screen flex items-center justify-center">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-96 border border-gray-700">
+            <h1 class="text-3xl font-bold mb-6 text-center text-blue-500">Syncarr</h1>
+            <form @submit.prevent="login">
+                <div class="mb-4">
+                    <label class="block text-gray-400 text-sm font-bold mb-1">Username</label>
+                    <input x-model="loginForm.username" type="text"
+                        class="w-full bg-gray-700 text-white border border-gray-600 rounded py-2 px-3 focus:outline-none focus:border-blue-500"
+                        placeholder="admin">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-400 text-sm font-bold mb-1">Password</label>
+                    <input x-model="loginForm.password" type="password"
+                        class="w-full bg-gray-700 text-white border border-gray-600 rounded py-2 px-3 focus:outline-none focus:border-blue-500"
+                        placeholder="admin">
+                </div>
+                <div x-show="loginError" class="mb-4 text-red-500 text-sm text-center" x-text="loginError"></div>
+                <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none transition duration-200">
+                    Login
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div x-show="token" x-cloak class="min-h-screen flex flex-col">
+        <!-- Navbar -->
+        <nav class="bg-gray-800 border-b border-gray-700 shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 text-blue-500 font-bold text-2xl mr-10">Syncarr</div>
+                        <div class="hidden md:block">
+                            <div class="flex items-baseline space-x-4">
+                                <button @click="currentTab = 'jobs'; fetchJobs()"
+                                    :class="{'bg-gray-900 text-white': currentTab === 'jobs', 'text-gray-300 hover:bg-gray-700 hover:text-white': currentTab !== 'jobs'}"
+                                    class="px-3 py-2 rounded-md text-sm font-medium transition">Dashboard</button>
+                                <button @click="currentTab = 'logs'"
+                                    :class="{'bg-gray-900 text-white': currentTab === 'logs', 'text-gray-300 hover:bg-gray-700 hover:text-white': currentTab !== 'logs'}"
+                                    class="px-3 py-2 rounded-md text-sm font-medium transition">Logs</button>
+                                <button @click="currentTab = 'settings'"
+                                    :class="{'bg-gray-900 text-white': currentTab === 'settings', 'text-gray-300 hover:bg-gray-700 hover:text-white': currentTab !== 'settings'}"
+                                    class="px-3 py-2 rounded-md text-sm font-medium transition">Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button @click="logout" class="text-gray-400 hover:text-white text-sm">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Content -->
+        <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
+
+            <!-- Jobs Tab -->
+            <div x-show="currentTab === 'jobs'" x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 transform scale-95"
+                x-transition:enter-end="opacity-100 transform scale-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-white">Sync Jobs</h2>
+                    <button @click="openJobModal()"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded shadow transition duration-200">
+                        + New Job
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <template x-for="job in jobs" :key="job.id">
+                        <div
+                            class="bg-gray-800 rounded-lg shadow-md overflow-hidden border border-gray-700 relative group flex flex-col">
+                            <div
+                                class="bg-gray-700 px-4 py-3 border-b border-gray-600 flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-white truncate" x-text="job.name"></h3>
+                                <div class="flex space-x-2">
+                                    <button @click="openJobModal(job)" class="text-gray-400 hover:text-white">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                            fill="currentColor">
+                                            <path
+                                                d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                        </svg>
+                                    </button>
+                                    <button @click="deleteJob(job.id)" class="text-red-400 hover:text-red-200">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                            fill="currentColor">
+                                            <path fill-rule="evenodd"
+                                                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 000-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-4 flex-1">
+                                <div class="flex justify-between mb-2">
+                                    <span class="text-gray-400 text-sm">Type:</span>
+                                    <span class="text-white text-sm font-medium uppercase" x-text="job.type"></span>
+                                </div>
+                                <div class="flex justify-between mb-2">
+                                    <span class="text-gray-400 text-sm">Interval:</span>
+                                    <span class="text-white text-sm" x-text="job.interval_minutes + ' min'"></span>
+                                </div>
+                                <div class="flex justify-between mb-2">
+                                    <span class="text-gray-400 text-sm">Last Run:</span>
+                                    <span class="text-gray-300 text-sm" x-text="job.last_run || 'Never'"></span>
+                                </div>
+                                <div class="flex justify-between items-center mt-4">
+                                    <span class="px-2 py-1 text-xs rounded-full" :class="{
+                                            'bg-green-900 text-green-200': job.status === 'Idle', 
+                                            'bg-blue-900 text-blue-200': job.status === 'Running',
+                                            'bg-red-900 text-red-200': job.status === 'Error'
+                                        }" x-text="job.status"></span>
+                                    <div class="space-x-2">
+                                        <button @click="runJob(job.id)"
+                                            class="text-xs text-green-400 hover:text-green-300 underline">Run
+                                            Now</button>
+                                        <button @click="viewJobLogs(job.id)"
+                                            class="text-xs text-blue-400 hover:text-blue-300 underline">View
+                                            Logs</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div x-show="currentTab === 'settings'" x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 transform scale-95"
+                x-transition:enter-end="opacity-100 transform scale-100">
+                <h2 class="text-2xl font-bold text-white mb-6">Settings</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-300">Authentication</h3>
+                        <div class="mb-4">
+                            <label class="block text-gray-400 text-sm font-bold mb-2">New Username</label>
+                            <input x-model="settingsForm.username" type="text"
+                                class="w-full bg-gray-900 text-white border border-gray-600 rounded py-2 px-3 focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-400 text-sm font-bold mb-2">New Password</label>
+                            <input x-model="settingsForm.password" type="password"
+                                class="w-full bg-gray-900 text-white border border-gray-600 rounded py-2 px-3 focus:outline-none focus:border-blue-500">
+                        </div>
+                        <button @click="updateSettings"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full transition duration-200">Update
+                            Credentials</button>
+                    </div>
+
+                    <div class="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-300">Network</h3>
+                        <div class="mb-4">
+                            <label class="block text-gray-400 text-sm font-bold mb-2">Web GUI Port</label>
+                            <input x-model="portForm.port" type="number"
+                                class="w-full bg-gray-900 text-white border border-gray-600 rounded py-2 px-3 focus:outline-none focus:border-blue-500">
+                        </div>
+                        <button @click="updatePort"
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded w-full transition duration-200">Update
+                            Port</button>
+                        <p class="mt-4 text-xs text-gray-500">Updating port requires restart.</p>
+                    </div>
+                </div>
+                <div x-show="settingsStatus" class="mt-4 p-4 rounded text-center"
+                    :class="{'bg-green-900 text-green-200': settingsSuccess, 'bg-red-900 text-red-200': !settingsSuccess}"
+                    x-text="settingsStatus"></div>
+            </div>
+
+            <!-- Logs Tab -->
+            <div x-show="currentTab === 'logs'" class="h-full flex flex-col"
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 transform scale-95"
+                x-transition:enter-end="opacity-100 transform scale-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-white">Job Logs</h2>
+                    <div class="space-x-2">
+                        <button @click="fetchJobLogs()"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition duration-200">Refresh</button>
+                        <button @click="clearLogs"
+                            class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded shadow transition duration-200">Clear
+                            View</button>
+                    </div>
+                </div>
+                <div class="flex-1 bg-black rounded-lg border border-gray-700 p-4 font-mono text-sm text-green-400 overflow-auto shadow-inner"
+                    style="min-h-[500px]; max-height: 80vh;" id="log-container">
+                    <div x-show="!selectedJobLogId" class="text-gray-500 italic">Select a job from the Dashboard to view
+                        its logs.</div>
+                    <template x-for="log in logs" :key="log.id">
+                        <div class="whitespace-pre-wrap break-all border-l-2 border-transparent hover:border-gray-600 pl-1"
+                            x-text="log.text"></div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Job Modal -->
+            <div x-show="showJobModal" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title"
+                role="dialog" aria-modal="true">
+                <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                    <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity"
+                        @click="showJobModal = false"></div>
+                    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                    <div
+                        class="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-gray-700">
+                        <div class="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                            <h3 class="text-lg leading-6 font-medium text-white mb-4"
+                                x-text="editingJob ? 'Edit Job' : 'New Sync Job'"></h3>
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">Job Name</label>
+                                    <input x-model="jobForm.name" type="text"
+                                        class="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">Type</label>
+                                    <select x-model="jobForm.type"
+                                        class="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm">
+                                        <option value="radarr">Radarr</option>
+                                        <option value="sonarr">Sonarr</option>
+                                        <option value="lidarr">Lidarr</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-gray-400 text-xs font-bold mb-1">Sync Interval
+                                    (Minutes)</label>
+                                <input x-model.number="jobForm.interval_minutes" type="number"
+                                    class="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm">
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input x-model="jobForm.config.bidirectional" type="checkbox"
+                                        class="form-checkbox h-4 w-4 text-blue-600 bg-gray-900 border-gray-600 rounded focus:ring-blue-500 focus:bg-gray-900">
+                                    <span class="text-gray-400 text-xs font-bold">Bidirectional Sync</span>
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">If enabled, syncs changes both ways. Requires
+                                    Profile and Path for Instance A as well (not fully supported in this UI yet, assume
+                                    config.conf equivalence).</p>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input x-model="jobForm.config.debug_logging" type="checkbox"
+                                        class="form-checkbox h-4 w-4 text-purple-600 bg-gray-900 border-gray-600 rounded focus:ring-purple-500 focus:bg-gray-900">
+                                    <span class="text-gray-400 text-xs font-bold">Enable Debug Logging</span>
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">Generate verbose logs for troubleshooting. Check
+                                    "View Logs" after running.</p>
+                            </div>
+
+                            <hr class="border-gray-700 my-4">
+
+                            <!-- Instance A -->
+                            <h4 class="text-white font-semibold mb-2">Instance A (Source)</h4>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">URL</label>
+                                    <input x-model="jobForm.config.url_a" type="text"
+                                        class="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono"
+                                        placeholder="http://localhost:7878">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">API Key</label>
+                                    <input x-model="jobForm.config.key_a" type="text"
+                                        class="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono">
+                                </div>
+                            </div>
+                            <div x-show="jobForm.config.bidirectional" class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">Profile Name (on
+                                        A)</label>
+                                    <div class="flex space-x-2">
+                                        <select x-model="jobForm.config.profile_a"
+                                            class="flex-1 bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm">
+                                            <option value="">-- Select or type below --</option>
+                                            <template x-for="p in profilesA" :key="p">
+                                                <option :value="p" x-text="p"></option>
+                                            </template>
+                                        </select>
+                                        <button @click="fetchProfilesA" type="button"
+                                            class="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 rounded">Fetch</button>
+                                    </div>
+                                    <input x-model="jobForm.config.profile_a" type="text" placeholder="Or type manually"
+                                        class="mt-1 w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">Root Path (on A)</label>
+                                    <div class="flex space-x-2">
+                                        <select x-model="jobForm.config.path_a"
+                                            class="flex-1 bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm">
+                                            <option value="">-- Select or type below --</option>
+                                            <template x-for="f in foldersA" :key="f">
+                                                <option :value="f" x-text="f"></option>
+                                            </template>
+                                        </select>
+                                        <button @click="fetchFoldersA" type="button"
+                                            class="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 rounded">Fetch</button>
+                                    </div>
+                                    <input x-model="jobForm.config.path_a" type="text" placeholder="Or type manually"
+                                        class="mt-1 w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono">
+                                </div>
+                            </div>
+
+                            <!-- Instance B -->
+                            <h4 class="text-white font-semibold mb-2">Instance B (Destination)</h4>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">URL</label>
+                                    <input x-model="jobForm.config.url_b" type="text"
+                                        class="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono"
+                                        placeholder="http://192.168.1.50:7878">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">API Key</label>
+                                    <input x-model="jobForm.config.key_b" type="text"
+                                        class="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">Profile Name (on
+                                        Dest)</label>
+                                    <div class="flex space-x-2">
+                                        <select x-model="jobForm.config.profile_b"
+                                            class="flex-1 bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm">
+                                            <option value="">-- Select or type below --</option>
+                                            <template x-for="p in profilesB" :key="p">
+                                                <option :value="p" x-text="p"></option>
+                                            </template>
+                                        </select>
+                                        <button @click="fetchProfilesB" type="button"
+                                            class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2 py-1 rounded">Fetch</button>
+                                    </div>
+                                    <input x-model="jobForm.config.profile_b" type="text" placeholder="Or type manually"
+                                        class="mt-1 w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 text-xs font-bold mb-1">Root Path (on
+                                        Dest)</label>
+                                    <div class="flex space-x-2">
+                                        <select x-model="jobForm.config.path_b"
+                                            class="flex-1 bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm">
+                                            <option value="">-- Select or type below --</option>
+                                            <template x-for="f in foldersB" :key="f">
+                                                <option :value="f" x-text="f"></option>
+                                            </template>
+                                        </select>
+                                        <button @click="fetchFoldersB" type="button"
+                                            class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2 py-1 rounded">Fetch</button>
+                                    </div>
+                                    <input x-model="jobForm.config.path_b" type="text" placeholder="Or type manually"
+                                        class="mt-1 w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono">
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                            <button @click="saveJob" type="button"
+                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm">
+                                Save Job
+                            </button>
+                            <button @click="testConnectionA" type="button"
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-green-500 shadow-sm px-4 py-2 bg-green-700 text-base font-medium text-white hover:bg-green-600 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                                Test Source
+                            </button>
+                            <button @click="testConnectionB" type="button"
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-purple-500 shadow-sm px-4 py-2 bg-purple-700 text-base font-medium text-white hover:bg-purple-600 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                                Test Dest
+                            </button>
+                            <button @click="showJobModal = false" type="button"
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-800 text-base font-medium text-gray-300 hover:text-white hover:bg-gray-600 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        function app() {
+            return {
+                token: localStorage.getItem('syncarr_token') || null,
+                loginForm: { username: '', password: '' },
+                loginError: '',
+                currentTab: 'jobs',
+                jobs: [],
+
+                // Job Modal
+                showJobModal: false,
+                editingJob: null,
+                jobForm: {
+                    id: null,
+                    name: 'My New Sync',
+                    type: 'radarr',
+                    interval_minutes: 60,
+                    config: { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '' }
+                },
+
+                // Settings
+                settingsForm: { username: 'admin', password: '' },
+                portForm: { port: 8000 },
+                settingsStatus: '',
+                settingsSuccess: false,
+
+                // Logs
+                logs: [],
+                logIdCounter: 0,
+                selectedJobLogId: null,
+
+                // Fetch data for dropdowns
+                profilesA: [],
+                foldersA: [],
+                profilesB: [],
+                foldersB: [],
+
+                init() {
+                    if (this.token) {
+                        this.fetchJobs();
+                        // this.connectLogs(); 
+                    }
+                },
+
+                async login() {
+                    this.loginError = '';
+                    try {
+                        const formData = new FormData();
+                        formData.append('username', this.loginForm.username);
+                        formData.append('password', this.loginForm.password);
+                        const res = await fetch('/token', { method: 'POST', body: formData });
+                        if (!res.ok) throw new Error('Invalid credentials');
+                        const data = await res.json();
+                        this.token = data.access_token;
+                        localStorage.setItem('syncarr_token', this.token);
+                        this.fetchJobs();
+                        // this.connectLogs();
+                    } catch (e) {
+                        this.loginError = e.message;
+                    }
+                },
+
+                async viewJobLogs(jobId) {
+                    this.currentTab = 'logs';
+                    this.selectedJobLogId = jobId;
+                    this.logs = [];
+                    await this.fetchJobLogs();
+                },
+
+                async fetchJobLogs() {
+                    if (!this.selectedJobLogId) return;
+                    try {
+                        const res = await fetch(`/api/jobs/${this.selectedJobLogId}/logs`, {
+                            headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        const data = await res.json();
+                        this.logs = data.logs.map((text, index) => ({ id: index, text: text }));
+                    } catch (e) {
+                        this.logs = [{ id: 0, text: "Error fetching logs." }];
+                    }
+                },
+
+                async runJob(jobId) {
+                    try {
+                        const res = await fetch(`/api/jobs/${jobId}/run`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        if (res.ok) {
+                            alert("Job triggered.");
+                            this.fetchJobs();
+                        } else {
+                            alert("Failed to trigger job.");
+                        }
+                    } catch (e) {
+                        alert("Error: " + e.message);
+                    }
+                },
+
+                logout() {
+                    this.token = null;
+                    localStorage.removeItem('syncarr_token');
+                    if (this.socket) this.socket.close();
+                },
+
+                async fetchJobs() {
+                    if (!this.token) return;
+                    const res = await fetch('/api/jobs', { headers: { 'Authorization': `Bearer ${this.token}` } });
+                    if (res.status === 401) this.logout();
+                    this.jobs = await res.json();
+                },
+
+                openJobModal(job = null) {
+                    this.editingJob = job;
+                    if (job) {
+                        this.jobForm = JSON.parse(JSON.stringify(job)); // Deep copy
+                        // Ensure config object exists
+                        if (!this.jobForm.config) this.jobForm.config = { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '', profile_a: '', path_a: '', bidirectional: false, debug_logging: false };
+                    } else {
+                        this.jobForm = {
+                            id: null,
+                            name: 'My New Sync',
+                            type: 'radarr',
+                            interval_minutes: 60,
+                            config: { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '', profile_a: '', path_a: '', bidirectional: false, debug_logging: false }
+                        };
+                    }
+                    this.showJobModal = true;
+                },
+
+                async saveJob() {
+                    const url = this.editingJob ? `/api/jobs/${this.jobForm.id}` : '/api/jobs';
+                    const method = this.editingJob ? 'PUT' : 'POST';
+
+                    try {
+                        const res = await fetch(url, {
+                            method: method,
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify(this.jobForm)
+                        });
+                        if (!res.ok) throw new Error("Failed to save job");
+                        this.showJobModal = false;
+                        this.fetchJobs();
+                    } catch (e) {
+                        alert(e.message);
+                    }
+                },
+
+                async deleteJob(id) {
+                    if (!confirm("Delete this job?")) return;
+                    await fetch(`/api/jobs/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${this.token}` } });
+                    this.fetchJobs();
+                },
+
+                async testConnectionA() {
+                    if (!this.editingJob && !this.jobForm.id) {
+                        alert("Please save the job first before testing.");
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`/api/jobs/${this.jobForm.id}/test`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        const data = await res.json();
+                        alert(data.message);
+                    } catch (e) {
+                        alert("Test failed: " + e.message);
+                    }
+                },
+
+                async testConnectionB() {
+                    if (!this.editingJob && !this.jobForm.id) {
+                        alert("Please save the job first before testing.");
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`/api/jobs/${this.jobForm.id}/test-b`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        const data = await res.json();
+                        alert(data.message);
+                    } catch (e) {
+                        alert("Test failed: " + e.message);
+                    }
+                },
+
+                async fetchProfilesA() {
+                    const url = this.jobForm.config.url_a;
+                    const key = this.jobForm.config.key_a;
+                    const type = this.jobForm.type;
+                    if (!url || !key) {
+                        alert("Please enter Instance A URL and API Key first.");
+                        return;
+                    }
+                    try {
+                        const res = await fetch('/api/fetch-profiles', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify({ url, key, type })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.profilesA = data.profiles;
+                            if (data.profiles.length === 0) alert("No profiles found.");
+                        } else {
+                            alert(data.message || "Failed to fetch profiles.");
+                        }
+                    } catch (e) {
+                        alert("Fetch failed: " + e.message);
+                    }
+                },
+
+                async fetchFoldersA() {
+                    const url = this.jobForm.config.url_a;
+                    const key = this.jobForm.config.key_a;
+                    const type = this.jobForm.type;
+                    if (!url || !key) {
+                        alert("Please enter Instance A URL and API Key first.");
+                        return;
+                    }
+                    try {
+                        const res = await fetch('/api/fetch-rootfolders', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify({ url, key, type })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.foldersA = data.folders;
+                            if (data.folders.length === 0) alert("No root folders found.");
+                        } else {
+                            alert(data.message || "Failed to fetch folders.");
+                        }
+                    } catch (e) {
+                        alert("Fetch failed: " + e.message);
+                    }
+                },
+
+                async fetchProfilesB() {
+                    const url = this.jobForm.config.url_b;
+                    const key = this.jobForm.config.key_b;
+                    const type = this.jobForm.type;
+                    if (!url || !key) {
+                        alert("Please enter Instance B URL and API Key first.");
+                        return;
+                    }
+                    try {
+                        const res = await fetch('/api/fetch-profiles', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify({ url, key, type })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.profilesB = data.profiles;
+                            if (data.profiles.length === 0) alert("No profiles found.");
+                        } else {
+                            alert(data.message || "Failed to fetch profiles.");
+                        }
+                    } catch (e) {
+                        alert("Fetch failed: " + e.message);
+                    }
+                },
+
+                async fetchFoldersB() {
+                    const url = this.jobForm.config.url_b;
+                    const key = this.jobForm.config.key_b;
+                    const type = this.jobForm.type;
+                    if (!url || !key) {
+                        alert("Please enter Instance B URL and API Key first.");
+                        return;
+                    }
+                    try {
+                        const res = await fetch('/api/fetch-rootfolders', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify({ url, key, type })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.foldersB = data.folders;
+                            if (data.folders.length === 0) alert("No root folders found.");
+                        } else {
+                            alert(data.message || "Failed to fetch folders.");
+                        }
+                    } catch (e) {
+                        alert("Fetch failed: " + e.message);
+                    }
+                },
+
+                async updateSettings() {
+                    try {
+                        const res = await fetch('/api/auth/update', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify(this.settingsForm)
+                        });
+                        if (!res.ok) throw new Error("Failed");
+                        this.settingsStatus = "Credentials updated.";
+                        this.settingsSuccess = true;
+                    } catch (e) {
+                        this.settingsStatus = "Error updating credentials.";
+                        this.settingsSuccess = false;
+                    }
+                },
+
+                async updatePort() {
+                    try {
+                        const res = await fetch('/api/auth/port', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify(this.portForm)
+                        });
+                        if (!res.ok) throw new Error("Failed");
+                        this.settingsStatus = "Port updated. Please restart server.";
+                        this.settingsSuccess = true;
+                    } catch (e) {
+                        this.settingsStatus = "Error updating port.";
+                        this.settingsSuccess = false;
+                    }
+                },
+
+                connectLogs() {
+                    if (this.socket) return;
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    this.socket = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
+                    this.socket.onmessage = (event) => {
+                        this.logs.push({ id: this.logIdCounter++, text: event.data });
+                        this.$nextTick(() => {
+                            const container = document.getElementById('log-container');
+                            if (container) container.scrollTop = container.scrollHeight;
+                        });
+                    };
+                },
+
+                clearLogs() {
+                    this.logs = [];
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
