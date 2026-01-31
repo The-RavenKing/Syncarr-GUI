@@ -73,6 +73,12 @@ def run_job(job):
             env["LOG_LEVEL"] = "10" # DEBUG
         else:
             env["LOG_LEVEL"] = "20" # INFO
+            
+        # Skip Missing Files (default: skip movies without files)
+        if config.get('sync_missing', False):
+            env["SYNCARR_SKIP_MISSING"] = "0"  # Don't skip - sync all movies
+        else:
+            env["SYNCARR_SKIP_MISSING"] = "1"  # Skip movies without files
         
         url_a = config.get('url_a', '')
         if url_a and not url_a.startswith("http://") and not url_a.startswith("https://"):

@@ -108,6 +108,7 @@ async def test_connection(job_id: str, current_user: dict = Depends(get_current_
     type_ = job['type']
     url = config.get('url_a')
     key = config.get('key_a')
+    skip_ssl = config.get('skip_ssl_verify', False)
     
     if not url or not key:
         return {"status": "error", "message": "URL or Key missing"}
@@ -121,7 +122,7 @@ async def test_connection(job_id: str, current_user: dict = Depends(get_current_
         
     try:
         # Simple verify of Instance A
-        res = requests.get(f"{url}{api_path}", params={"apikey": key}, timeout=5)
+        res = requests.get(f"{url}{api_path}", params={"apikey": key}, timeout=30, verify=not skip_ssl)
         if res.status_code == 200:
             return {"status": "success", "message": "Connection to Instance A successful"}
         else:
@@ -140,6 +141,7 @@ async def test_connection_b(job_id: str, current_user: dict = Depends(get_curren
     type_ = job['type']
     url = config.get('url_b')
     key = config.get('key_b')
+    skip_ssl = config.get('skip_ssl_verify', False)
     
     if not url or not key:
         return {"status": "error", "message": "URL or Key missing for Instance B"}
@@ -152,7 +154,7 @@ async def test_connection_b(job_id: str, current_user: dict = Depends(get_curren
         api_path = "/api/v1/system/status"
         
     try:
-        res = requests.get(f"{url}{api_path}", params={"apikey": key}, timeout=5)
+        res = requests.get(f"{url}{api_path}", params={"apikey": key}, timeout=30, verify=not skip_ssl)
         if res.status_code == 200:
             return {"status": "success", "message": "Connection to Instance B successful"}
         else:
@@ -164,12 +166,14 @@ class FetchProfilesRequest(BaseModel):
     url: str
     key: str
     type: str # radarr, sonarr, lidarr
+    skip_ssl_verify: Optional[bool] = False
 
 @router.post("/api/fetch-profiles")
 async def fetch_profiles(req: FetchProfilesRequest, current_user: dict = Depends(get_current_user)):
     url = req.url
     key = req.key
     type_ = req.type
+    skip_ssl = req.skip_ssl_verify or False
     
     if not url or not key:
         return {"status": "error", "profiles": [], "message": "URL or Key missing"}
@@ -185,7 +189,7 @@ async def fetch_profiles(req: FetchProfilesRequest, current_user: dict = Depends
         api_path = "/api/v1/qualityprofile"
         
     try:
-        res = requests.get(f"{url}{api_path}", params={"apikey": key}, timeout=5)
+        res = requests.get(f"{url}{api_path}", params={"apikey": key}, timeout=30, verify=not skip_ssl)
         if res.status_code == 200:
             profiles = res.json()
             profile_names = [p.get('name') for p in profiles]
@@ -200,6 +204,7 @@ async def fetch_rootfolders(req: FetchProfilesRequest, current_user: dict = Depe
     url = req.url
     key = req.key
     type_ = req.type
+    skip_ssl = req.skip_ssl_verify or False
     
     if not url or not key:
         return {"status": "error", "folders": [], "message": "URL or Key missing"}
@@ -214,7 +219,7 @@ async def fetch_rootfolders(req: FetchProfilesRequest, current_user: dict = Depe
         api_path = "/api/v1/rootfolder"
         
     try:
-        res = requests.get(f"{url}{api_path}", params={"apikey": key}, timeout=5)
+        res = requests.get(f"{url}{api_path}", params={"apikey": key}, timeout=30, verify=not skip_ssl)
         if res.status_code == 200:
             folders = res.json()
             folder_paths = [f.get('path') for f in folders]

@@ -28,22 +28,40 @@ A modern web-based GUI for managing [Syncarr](https://github.com/syncarr/syncarr
 
 ## Installation
 
-### 1. Clone or Download
+### Quick Install (Recommended)
+
+**Double-click `Install-Syncarr.bat`** - that's it!
+
+The installer will automatically:
+- ✅ Install Python (if not already installed)
+- ✅ Install all required dependencies
+- ✅ Set up Syncarr as a Windows service
+- ✅ Start the service automatically
+
+> 💡 **Tip:** Right-click and "Run as administrator" if the auto-elevation doesn't work.
+
+---
+
+### Manual Installation (Advanced)
+
+If you prefer to install manually:
+
+#### 1. Clone or Download
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/syncarr-web-gui.git
 cd syncarr-web-gui
 ```
 
-### 2. Install Python Dependencies
+#### 2. Install Python Dependencies
 
 ```bash
 pip install -r requirements_gui.txt
 ```
 
-### 3. Run the Web GUI
+#### 3. Run the Web GUI
 
-**Windows:**
+**Windows (simple):**
 ```bash
 start.bat
 ```
@@ -53,7 +71,45 @@ start.bat
 python web_app.py
 ```
 
-### 4. Access the GUI
+### 4. Install as Windows Service (Recommended)
+
+Run Syncarr as a background service that starts automatically with Windows (just like Radarr/Sonarr):
+
+1. **Open PowerShell as Administrator**
+2. **Navigate to the Syncarr-GUI folder:**
+   ```powershell
+   cd "C:\path\to\Syncarr-GUI"
+   ```
+3. **Run the installer:**
+   ```powershell
+   .\install_service.ps1
+   ```
+
+The script will:
+- Download NSSM (Non-Sucking Service Manager) automatically
+- Detect your Python installation
+- Create and start the "Syncarr" Windows service
+- Configure automatic startup and log rotation
+
+**Manage the service:**
+```powershell
+# Check status
+Get-Service Syncarr
+
+# Stop/Start/Restart
+Stop-Service Syncarr
+Start-Service Syncarr
+Restart-Service Syncarr
+```
+
+Or use Windows Services (`services.msc`) to manage it via GUI.
+
+**To uninstall the service:**
+```powershell
+.\uninstall_service.ps1
+```
+
+### 5. Access the GUI
 
 Open your browser and go to:
 ```

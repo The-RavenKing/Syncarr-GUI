@@ -280,6 +280,27 @@
                                     "View Logs" after running.</p>
                             </div>
 
+                            <div class="mb-4">
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input x-model="jobForm.config.skip_ssl_verify" type="checkbox"
+                                        class="form-checkbox h-4 w-4 text-yellow-600 bg-gray-900 border-gray-600 rounded focus:ring-yellow-500 focus:bg-gray-900">
+                                    <span class="text-gray-400 text-xs font-bold">Skip SSL Certificate
+                                        Verification</span>
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">Enable for self-signed certificates or internal
+                                    CAs. Not recommended for production.</p>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input x-model="jobForm.config.sync_missing" type="checkbox"
+                                        class="form-checkbox h-4 w-4 text-green-600 bg-gray-900 border-gray-600 rounded focus:ring-green-500 focus:bg-gray-900">
+                                    <span class="text-gray-400 text-xs font-bold">Sync Movies Without Files</span>
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">Enable to sync movies that are monitored but don't
+                                    have downloaded files yet.</p>
+                            </div>
+
                             <hr class="border-gray-700 my-4">
 
                             <!-- Instance A -->
@@ -289,7 +310,7 @@
                                     <label class="block text-gray-400 text-xs font-bold mb-1">URL</label>
                                     <input x-model="jobForm.config.url_a" type="text"
                                         class="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono"
-                                        placeholder="http://localhost:7878">
+                                        placeholder="https://radarr.domain.com or http://192.168.1.x:7878">
                                 </div>
                                 <div>
                                     <label class="block text-gray-400 text-xs font-bold mb-1">API Key</label>
@@ -340,7 +361,7 @@
                                     <label class="block text-gray-400 text-xs font-bold mb-1">URL</label>
                                     <input x-model="jobForm.config.url_b" type="text"
                                         class="w-full bg-gray-900 text-white border border-gray-600 rounded px-3 py-2 text-sm font-mono"
-                                        placeholder="http://192.168.1.50:7878">
+                                        placeholder="https://radarr.domain.com or http://192.168.1.x:7878">
                                 </div>
                                 <div>
                                     <label class="block text-gray-400 text-xs font-bold mb-1">API Key</label>
@@ -528,14 +549,14 @@
                     if (job) {
                         this.jobForm = JSON.parse(JSON.stringify(job)); // Deep copy
                         // Ensure config object exists
-                        if (!this.jobForm.config) this.jobForm.config = { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '', profile_a: '', path_a: '', bidirectional: false, debug_logging: false };
+                        if (!this.jobForm.config) this.jobForm.config = { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '', profile_a: '', path_a: '', bidirectional: false, debug_logging: false, skip_ssl_verify: false, sync_missing: false };
                     } else {
                         this.jobForm = {
                             id: null,
                             name: 'My New Sync',
                             type: 'radarr',
                             interval_minutes: 60,
-                            config: { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '', profile_a: '', path_a: '', bidirectional: false, debug_logging: false }
+                            config: { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '', profile_a: '', path_a: '', bidirectional: false, debug_logging: false, skip_ssl_verify: false, sync_missing: false }
                         };
                     }
                     this.showJobModal = true;
@@ -613,7 +634,7 @@
                         const res = await fetch('/api/fetch-profiles', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
-                            body: JSON.stringify({ url, key, type })
+                            body: JSON.stringify({ url, key, type, skip_ssl_verify: this.jobForm.config.skip_ssl_verify })
                         });
                         const data = await res.json();
                         if (data.status === 'success') {
@@ -639,7 +660,7 @@
                         const res = await fetch('/api/fetch-rootfolders', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
-                            body: JSON.stringify({ url, key, type })
+                            body: JSON.stringify({ url, key, type, skip_ssl_verify: this.jobForm.config.skip_ssl_verify })
                         });
                         const data = await res.json();
                         if (data.status === 'success') {
@@ -665,7 +686,7 @@
                         const res = await fetch('/api/fetch-profiles', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
-                            body: JSON.stringify({ url, key, type })
+                            body: JSON.stringify({ url, key, type, skip_ssl_verify: this.jobForm.config.skip_ssl_verify })
                         });
                         const data = await res.json();
                         if (data.status === 'success') {
@@ -691,7 +712,7 @@
                         const res = await fetch('/api/fetch-rootfolders', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
-                            body: JSON.stringify({ url, key, type })
+                            body: JSON.stringify({ url, key, type, skip_ssl_verify: this.jobForm.config.skip_ssl_verify })
                         });
                         const data = await res.json();
                         if (data.status === 'success') {
