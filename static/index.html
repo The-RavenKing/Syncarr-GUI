@@ -190,6 +190,18 @@
                             Port</button>
                         <p class="mt-4 text-xs text-gray-500">Updating port requires restart.</p>
                     </div>
+
+                    <div class="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-300">Updates</h3>
+                        <p class="text-gray-400 text-sm mb-4">Pull the latest changes from the source repository and
+                            apply them to your local installation.</p>
+                        <button @click="updateSyncarr" :disabled="updateStatus === 'updating'"
+                            class="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded w-full transition duration-200"
+                            x-text="updateStatus === 'updating' ? 'Updating...' : 'Update Syncarr'"></button>
+                        <p x-show="updateMessage" class="mt-4 text-xs"
+                            :class="{'text-green-400': updateStatus === 'success', 'text-red-400': updateStatus === 'error', 'text-yellow-400': updateStatus === 'partial'}"
+                            x-text="updateMessage"></p>
+                    </div>
                 </div>
                 <div x-show="settingsStatus" class="mt-4 p-4 rounded text-center"
                     :class="{'bg-green-900 text-green-200': settingsSuccess, 'bg-red-900 text-red-200': !settingsSuccess}"
@@ -467,6 +479,10 @@
                 portForm: { port: 8000 },
                 settingsStatus: '',
                 settingsSuccess: false,
+
+                // Updates
+                updateStatus: '',
+                updateMessage: '',
 
                 // Logs
                 logs: [],
@@ -765,6 +781,43 @@
                     } catch (e) {
                         this.settingsStatus = "Error updating port.";
                         this.settingsSuccess = false;
+                    }
+                },
+
+                async updateSyncarr() {
+                    this.updateStatus = 'updating';
+                    this.updateMessage = 'Copying files from source...';
+
+                    try {
+                        const res = await fetch('/api/update', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        const data = await res.json();
+
+                        if (data.status === 'success' || data.status === 'partial') {
+                            this.updateStatus = data.status;
+                            this.updateMessage = data.message + ' Restarting service...';
+
+                            // Trigger restart
+                            await fetch('/api/restart', {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${this.token}` }
+                            });
+
+                            // Wait and reload
+                            this.updateMessage = 'Restarting... Page will refresh in 5 seconds.';
+                            setTimeout(() => {
+                                this.updateMessage = 'Refreshing page...';
+                                setTimeout(() => location.reload(), 1000);
+                            }, 5000);
+                        } else {
+                            this.updateStatus = 'error';
+                            this.updateMessage = data.message || 'Update failed';
+                        }
+                    } catch (e) {
+                        this.updateStatus = 'error';
+                        this.updateMessage = 'Error: ' + e.message;
                     }
                 },
 

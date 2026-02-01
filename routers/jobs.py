@@ -247,3 +247,102 @@ async def run_job_endpoint(job_id: str, current_user: dict = Depends(get_current
     threading.Thread(target=scheduler.run_job, args=(job,)).start()
     
     return {"status": "success", "message": "Job started"}
+
+
+# ============== UPDATE FUNCTIONALITY ==============
+
+import shutil
+import subprocess
+import sys
+
+# Try to detect the source path (network share or git repo)
+def get_source_path():
+    """Try to find the source installation path"""
+    possible_sources = [
+        r"\\192.168.1.228\Video\Syncarr Front-end\Syncarr-GUI",
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), ".."),  # Parent of current
+    ]
+    for src in possible_sources:
+        if os.path.exists(os.path.join(src, "syncarr_source", "index.py")):
+            return src
+    return None
+
+@router.post("/api/update")
+async def update_syncarr(current_user: dict = Depends(get_current_user)):
+    """Update Syncarr from source directory"""
+    
+    source_path = get_source_path()
+    if not source_path:
+        return {"status": "error", "message": "Could not find source installation path"}
+    
+    install_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    # Don't update if running from source directly
+    if os.path.normpath(source_path) == os.path.normpath(install_path):
+        return {"status": "error", "message": "Already running from source. Use 'git pull' to update."}
+    
+    items_to_update = [
+        "syncarr_source",
+        "static",
+        "routers",
+        "scheduler.py",
+        "web_app.py",
+    ]
+    
+    updated_items = []
+    errors = []
+    
+    try:
+        for item in items_to_update:
+            src = os.path.join(source_path, item)
+            dst = os.path.join(install_path, item)
+            
+            if os.path.exists(src):
+                try:
+                    if os.path.isdir(src):
+                        if os.path.exists(dst):
+                            shutil.rmtree(dst)
+                        shutil.copytree(src, dst)
+                    else:
+                        shutil.copy2(src, dst)
+                    updated_items.append(item)
+                except Exception as e:
+                    errors.append(f"{item}: {str(e)}")
+        
+        if errors:
+            return {
+                "status": "partial",
+                "message": f"Updated {len(updated_items)} items with {len(errors)} errors",
+                "updated": updated_items,
+                "errors": errors,
+                "restart_required": True
+            }
+        
+        return {
+            "status": "success",
+            "message": f"Updated {len(updated_items)} items. Restart the service to apply changes.",
+            "updated": updated_items,
+            "restart_required": True
+        }
+        
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/api/restart")
+async def restart_service(current_user: dict = Depends(get_current_user)):
+    """Schedule a service restart"""
+    import time
+    
+    def delayed_restart():
+        time.sleep(2)  # Give time for response to be sent
+        try:
+            # Try to restart via Windows Service
+            subprocess.run(["powershell", "-Command", "Restart-Service", "Syncarr"], 
+                          capture_output=True, timeout=30)
+        except:
+            # Fallback: just exit and let service manager restart
+            os._exit(0)
+    
+    threading.Thread(target=delayed_restart, daemon=True).start()
+    return {"status": "success", "message": "Service will restart in 2 seconds..."}
