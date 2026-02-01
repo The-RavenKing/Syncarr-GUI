@@ -301,6 +301,16 @@
                                     have downloaded files yet.</p>
                             </div>
 
+                            <div class="mb-4">
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input x-model="jobForm.config.unmonitor_if_downloaded" type="checkbox"
+                                        class="form-checkbox h-4 w-4 text-orange-600 bg-gray-900 border-gray-600 rounded focus:ring-orange-500 focus:bg-gray-900">
+                                    <span class="text-gray-400 text-xs font-bold">Sync Download Status</span>
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">Unmonitor content on destination when source has
+                                    file, re-monitor if source file is deleted. For Sonarr, works per-episode.</p>
+                            </div>
+
                             <hr class="border-gray-700 my-4">
 
                             <!-- Instance A -->
@@ -449,7 +459,7 @@
                     name: 'My New Sync',
                     type: 'radarr',
                     interval_minutes: 60,
-                    config: { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '' }
+                    config: { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '', unmonitor_if_downloaded: false }
                 },
 
                 // Settings
@@ -556,7 +566,7 @@
                             name: 'My New Sync',
                             type: 'radarr',
                             interval_minutes: 60,
-                            config: { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '', profile_a: '', path_a: '', bidirectional: false, debug_logging: false, skip_ssl_verify: false, sync_missing: false }
+                            config: { url_a: '', key_a: '', url_b: '', key_b: '', profile_b: '', path_b: '', profile_a: '', path_a: '', bidirectional: false, debug_logging: false, skip_ssl_verify: false, sync_missing: false, unmonitor_if_downloaded: false }
                         };
                     }
                     this.showJobModal = true;

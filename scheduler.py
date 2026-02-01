@@ -80,6 +80,12 @@ def run_job(job):
         else:
             env["SYNCARR_SKIP_MISSING"] = "1"  # Skip movies without files
         
+        # Sync Download Status (unmonitor if source has file, re-monitor if not)
+        if config.get('unmonitor_if_downloaded', False):
+            env["SYNCARR_UNMONITOR_IF_DOWNLOADED"] = "1"
+        else:
+            env["SYNCARR_UNMONITOR_IF_DOWNLOADED"] = "0"
+        
         url_a = config.get('url_a', '')
         if url_a and not url_a.startswith("http://") and not url_a.startswith("https://"):
             url_a = "http://" + url_a
