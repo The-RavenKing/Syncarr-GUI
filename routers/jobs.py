@@ -234,6 +234,13 @@ async def get_job_logs(job_id: str, current_user: dict = Depends(get_current_use
     logs = scheduler.get_job_logs(job_id)
     return {"logs": logs}
 
+@router.get("/api/jobs/{job_id}/progress")
+async def get_job_progress(job_id: str, current_user: dict = Depends(get_current_user)):
+    progress = scheduler.get_job_progress(job_id)
+    if progress:
+        return {"has_progress": True, **progress}
+    return {"has_progress": False}
+
 @router.post("/api/jobs/{job_id}/run")
 async def run_job_endpoint(job_id: str, current_user: dict = Depends(get_current_user)):
     jobs = scheduler.load_jobs()

@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 
 JOBS_FILE = "jobs.json"
 POLL_INTERVAL = 30 # Check every 30 seconds
+LOGS_DIR = "logs"
+MAX_LOGS_PER_TYPE = 5
 
 running_jobs = {} # track running processes if needed, or just lock
 
@@ -35,9 +37,32 @@ def update_job_status(job_id, status, last_run=None):
     save_jobs(jobs)
 
 job_logs = {} # In-memory log buffer: {job_id: [lines]}
+job_progress = {}  # In-memory progress tracker: {job_id: {current, total, phase, percent}}
 
 def get_job_logs(job_id):
     return job_logs.get(job_id, [])
+
+def get_job_progress(job_id):
+    return job_progress.get(job_id, None)
+
+def ensure_logs_dir():
+    """Create logs directory if it doesn't exist"""
+    if not os.path.exists(LOGS_DIR):
+        os.makedirs(LOGS_DIR)
+
+def cleanup_old_logs(job_type):
+    """Keep only the last MAX_LOGS_PER_TYPE log files for a given job type"""
+    ensure_logs_dir()
+    prefix = f"{job_type.lower()}_"
+    log_files = [f for f in os.listdir(LOGS_DIR) if f.startswith(prefix) and f.endswith('.log')]
+    log_files.sort(reverse=True)  # Newest first (timestamp in filename)
+    
+    # Remove old files beyond the limit
+    for old_file in log_files[MAX_LOGS_PER_TYPE:]:
+        try:
+            os.remove(os.path.join(LOGS_DIR, old_file))
+        except:
+            pass
 
 def run_job(job):
     print(f"Starting job: {job['name']}")
@@ -46,11 +71,45 @@ def run_job(job):
     # Initialize log buffer for this job
     job_logs[job['id']] = []
     
+    # Create log file for this run
+    ensure_logs_dir()
+    job_type = job['type'].lower()  # radarr, sonarr, lidarr
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = f"{job_type}_{timestamp}.log"
+    log_filepath = os.path.join(LOGS_DIR, log_filename)
+    log_file = open(log_filepath, 'w', encoding='utf-8')
+    
+    # Initialize progress
+    job_progress[job['id']] = {'current': 0, 'total': 0, 'phase': 'Starting', 'percent': 0}
+    
     def log(msg):
         timestamp = datetime.now().strftime("%H:%M:%S")
+        
+        # Check for progress markers
+        if msg.startswith("SYNCARR_PROGRESS:"):
+            try:
+                parts = msg.split(":")
+                numbers = parts[1].split("/")
+                current = int(numbers[0])
+                total = int(numbers[1])
+                phase = parts[2] if len(parts) > 2 else ""
+                percent = int((current / total) * 100) if total > 0 else 0
+                job_progress[job['id']] = {
+                    'current': current,
+                    'total': total,
+                    'phase': phase,
+                    'percent': percent
+                }
+            except:
+                pass
+            return  # Don't log progress markers to the log file
+        
         line = f"[{timestamp}] {msg}"
         print(f"[Job {job['name']}] {msg}") # Console
         job_logs[job['id']].append(line)
+        # Write to log file
+        log_file.write(line + "\n")
+        log_file.flush()
 
     try:
         # Construct ENV vars for Syncarr script
@@ -138,6 +197,17 @@ def run_job(job):
     except Exception as e:
         log(f"Error running job: {e}")
         update_job_status(job['id'], "Error")
+    
+    finally:
+        # Close log file and cleanup old logs
+        try:
+            log_file.close()
+        except:
+            pass
+        cleanup_old_logs(job_type)
+        # Clear progress
+        if job['id'] in job_progress:
+            del job_progress[job['id']]
 
 def scheduler_loop():
     print("Scheduler started.")

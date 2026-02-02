@@ -134,11 +134,26 @@
                                     <span class="text-gray-300 text-sm" x-text="job.last_run || 'Never'"></span>
                                 </div>
                                 <div class="flex justify-between items-center mt-4">
-                                    <span class="px-2 py-1 text-xs rounded-full" :class="{
-                                            'bg-green-900 text-green-200': job.status === 'Idle', 
-                                            'bg-blue-900 text-blue-200': job.status === 'Running',
-                                            'bg-red-900 text-red-200': job.status === 'Error'
-                                        }" x-text="job.status"></span>
+                                    <div class="flex flex-col">
+                                        <span class="px-2 py-1 text-xs rounded-full" :class="{
+                                                'bg-green-900 text-green-200': job.status === 'Idle', 
+                                                'bg-blue-900 text-blue-200': job.status === 'Running',
+                                                'bg-red-900 text-red-200': job.status === 'Error'
+                                            }">
+                                            <span
+                                                x-text="job.status === 'Running' && job.progress ? `Running (${job.progress.percent}%)` : job.status"></span>
+                                        </span>
+                                        <!-- Progress bar when running -->
+                                        <template x-if="job.status === 'Running' && job.progress">
+                                            <div class="mt-2">
+                                                <div class="w-32 bg-gray-700 rounded-full h-1.5">
+                                                    <div class="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                                                        :style="`width: ${job.progress.percent}%`"></div>
+                                                </div>
+                                                <span class="text-xs text-gray-400" x-text="job.progress.phase"></span>
+                                            </div>
+                                        </template>
+                                    </div>
                                     <div class="space-x-2">
                                         <button @click="runJob(job.id)"
                                             class="text-xs text-green-400 hover:text-green-300 underline">Run
@@ -224,7 +239,7 @@
                     </div>
                 </div>
                 <div class="flex-1 bg-black rounded-lg border border-gray-700 p-4 font-mono text-sm text-green-400 overflow-auto shadow-inner"
-                    style="min-h-[500px]; max-height: 80vh;" id="log-container">
+                    style="min-height: 500px; max-height: 80vh;" id="log-container">
                     <div x-show="!selectedJobLogId" class="text-gray-500 italic">Select a job from the Dashboard to view
                         its logs.</div>
                     <template x-for="log in logs" :key="log.id">
@@ -462,6 +477,7 @@
                 loginError: '',
                 currentTab: 'jobs',
                 jobs: [],
+                progressInterval: null,
 
                 // Job Modal
                 showJobModal: false,
@@ -568,6 +584,32 @@
                     const res = await fetch('/api/jobs', { headers: { 'Authorization': `Bearer ${this.token}` } });
                     if (res.status === 401) this.logout();
                     this.jobs = await res.json();
+
+                    // Fetch progress for running jobs
+                    for (let job of this.jobs) {
+                        if (job.status === 'Running') {
+                            try {
+                                const progressRes = await fetch(`/api/jobs/${job.id}/progress`, {
+                                    headers: { 'Authorization': `Bearer ${this.token}` }
+                                });
+                                const progress = await progressRes.json();
+                                if (progress.has_progress) {
+                                    job.progress = progress;
+                                }
+                            } catch (e) { }
+                        } else {
+                            job.progress = null;
+                        }
+                    }
+
+                    // If any job is running, poll more frequently
+                    const anyRunning = this.jobs.some(j => j.status === 'Running');
+                    if (anyRunning && !this.progressInterval) {
+                        this.progressInterval = setInterval(() => this.fetchJobs(), 2000);
+                    } else if (!anyRunning && this.progressInterval) {
+                        clearInterval(this.progressInterval);
+                        this.progressInterval = null;
+                    }
                 },
 
                 openJobModal(job = null) {
