@@ -34,18 +34,8 @@ class Job(BaseModel):
     last_run: Optional[str] = "Never"
     status: Optional[str] = "Idle" # Idle, Running, Error
 
-def load_jobs():
-    if os.path.exists(JOBS_FILE):
-        with open(JOBS_FILE, 'r') as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                return []
-    return []
+from utils.config_manager import load_jobs, save_jobs
 
-def save_jobs(jobs):
-    with open(JOBS_FILE, 'w') as f:
-        json.dump(jobs, f, indent=4)
 
 @router.get("/api/jobs", response_model=List[Job])
 async def get_jobs(current_user: dict = Depends(get_current_user)):
@@ -265,75 +255,103 @@ import sys
 # Try to detect the source path (network share or git repo)
 def get_source_path():
     """Try to find the source installation path"""
+    # Use forward slashes for safety in Python, even on Windows
     possible_sources = [
+        r"//192.168.1.228/Video/Syncarr Front-end/Syncarr-GUI",
         r"\\192.168.1.228\Video\Syncarr Front-end\Syncarr-GUI",
         os.path.join(os.path.dirname(os.path.dirname(__file__)), ".."),  # Parent of current
     ]
+    
+    debug_log = []
+    
     for src in possible_sources:
-        if os.path.exists(os.path.join(src, "syncarr_source", "index.py")):
+        check_path = os.path.join(src, "syncarr_source", "index.py")
+        exists = os.path.exists(check_path)
+        debug_log.append(f"Checking {check_path}: {exists}")
+        if exists:
             return src
+            
+    # Return buffer for debugging if failing
+    print("DEBUG PATHS:", debug_log)
     return None
 
 @router.post("/api/update")
 async def update_syncarr(current_user: dict = Depends(get_current_user)):
-    """Update Syncarr from source directory"""
-    
-    source_path = get_source_path()
-    if not source_path:
-        return {"status": "error", "message": "Could not find source installation path"}
+    """Update Syncarr from source directory or git"""
     
     install_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    source_path = get_source_path()
     
-    # Don't update if running from source directly
-    if os.path.normpath(source_path) == os.path.normpath(install_path):
-        return {"status": "error", "message": "Already running from source. Use 'git pull' to update."}
-    
-    items_to_update = [
-        "syncarr_source",
-        "static",
-        "routers",
-        "scheduler.py",
-        "web_app.py",
-    ]
-    
-    updated_items = []
-    errors = []
-    
-    try:
-        for item in items_to_update:
-            src = os.path.join(source_path, item)
-            dst = os.path.join(install_path, item)
-            
-            if os.path.exists(src):
-                try:
-                    if os.path.isdir(src):
-                        if os.path.exists(dst):
-                            shutil.rmtree(dst)
-                        shutil.copytree(src, dst)
-                    else:
-                        shutil.copy2(src, dst)
-                    updated_items.append(item)
-                except Exception as e:
-                    errors.append(f"{item}: {str(e)}")
+    # 1. Try Git Update if .git exists in install dir
+    if os.path.exists(os.path.join(install_path, ".git")):
+        try:
+            result = subprocess.run(["git", "pull"], cwd=install_path, capture_output=True, text=True)
+            if result.returncode == 0:
+                return {
+                    "status": "success", 
+                    "message": "Updated successfully via git pull. Restart required.",
+                    "details": result.stdout,
+                    "restart_required": True
+                }
+            else:
+                return {"status": "error", "message": f"Git pull failed: {result.stderr}"}
+        except Exception as e:
+            return {"status": "error", "message": f"Git update failed: {str(e)}"}
+
+    # 2. Try copying from known source location (Network Share / Dev environment)
+    if source_path and os.path.normpath(source_path) != os.path.normpath(install_path):
+        items_to_update = [
+            "syncarr_source",
+            "static",
+            "routers",
+            "scheduler.py",
+            "web_app.py",
+        ]
         
-        if errors:
+        updated_items = []
+        errors = []
+        
+        try:
+            for item in items_to_update:
+                src = os.path.join(source_path, item)
+                dst = os.path.join(install_path, item)
+                
+                if os.path.exists(src):
+                    try:
+                        if os.path.isdir(src):
+                            if os.path.exists(dst):
+                                shutil.rmtree(dst)
+                            shutil.copytree(src, dst)
+                        else:
+                            shutil.copy2(src, dst)
+                        updated_items.append(item)
+                    except Exception as e:
+                        errors.append(f"{item}: {str(e)}")
+            
+            if errors:
+                return {
+                    "status": "partial",
+                    "message": f"Updated {len(updated_items)} items with {len(errors)} errors",
+                    "updated": updated_items,
+                    "errors": errors,
+                    "restart_required": True
+                }
+            
             return {
-                "status": "partial",
-                "message": f"Updated {len(updated_items)} items with {len(errors)} errors",
+                "status": "success",
+                "message": f"Updated {len(updated_items)} items. Restart the service to apply changes.",
                 "updated": updated_items,
-                "errors": errors,
                 "restart_required": True
             }
-        
-        return {
-            "status": "success",
-            "message": f"Updated {len(updated_items)} items. Restart the service to apply changes.",
-            "updated": updated_items,
-            "restart_required": True
-        }
-        
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+            
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    # 3. Fallback: No source found
+    return {
+        "status": "error", 
+        "message": f"Could not find a valid update source. Instance is not a git repository and network share is inaccessible. (Checked: {source_path} vs {install_path})"
+    }
 
 
 @router.post("/api/restart")
@@ -353,3 +371,21 @@ async def restart_service(current_user: dict = Depends(get_current_user)):
     
     threading.Thread(target=delayed_restart, daemon=True).start()
     return {"status": "success", "message": "Service will restart in 2 seconds..."}
+
+@router.post("/api/shutdown")
+async def shutdown_service(current_user: dict = Depends(get_current_user)):
+    """Schedule a service shutdown"""
+    import time
+    
+    def delayed_shutdown():
+        time.sleep(2)
+        # Try to stop via Windows Service if possible, or just exit
+        try:
+             subprocess.run(["powershell", "-Command", "Stop-Service", "Syncarr"], 
+                           capture_output=True, timeout=30)
+        except:
+            pass
+        os._exit(0)
+    
+    threading.Thread(target=delayed_shutdown, daemon=True).start()
+    return {"status": "success", "message": "Service will shut down in 2 seconds..."}

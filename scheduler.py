@@ -13,28 +13,8 @@ MAX_LOGS_PER_TYPE = 5
 
 running_jobs = {} # track running processes if needed, or just lock
 
-def load_jobs():
-    if os.path.exists(JOBS_FILE):
-        with open(JOBS_FILE, 'r') as f:
-            try:
-                return json.load(f)
-            except:
-                return []
-    return []
+from utils.config_manager import load_jobs, save_jobs, update_job_status
 
-def save_jobs(jobs):
-    with open(JOBS_FILE, 'w') as f:
-        json.dump(jobs, f, indent=4)
-
-def update_job_status(job_id, status, last_run=None):
-    jobs = load_jobs()
-    for job in jobs:
-        if job['id'] == job_id:
-            job['status'] = status
-            if last_run:
-                job['last_run'] = last_run
-            break
-    save_jobs(jobs)
 
 job_logs = {} # In-memory log buffer: {job_id: [lines]}
 job_progress = {}  # In-memory progress tracker: {job_id: {current, total, phase, percent}}
